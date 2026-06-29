@@ -8,7 +8,7 @@ The dataset is sourced from [intel-processors](https://github.com/toUpperCase78/
 
 ## Approach
 
-Linear regression is used to model the relationship between processor features and clock speed targets. The model iterates through six phases, progressively introducing categorical context, physical constraints, and engineered features while preserving the linear framework required for extrapolation to future architectures.
+Linear regression is used to model the relationship between processor features and clock speed targets. The model iterates through seven phases, progressively introducing categorical context, physical constraints, and engineered features while preserving the linear framework required for extrapolation to future architectures.
 
 ## Structure
 
@@ -66,11 +66,20 @@ Predicting a CPU's maximum turbo frequency using linear regression is a challeng
 - **Metrics:** Training R-squared 95.80% | Test R-squared 85.32% | Test MAE 0.211 GHz
 - **Insight:** Tree-based ensembles cannot extrapolate outside training data boundaries. Since a project goal is to project trends into future architectures, a model that flatlines at historical endpoints is non-viable.
 
-### Phase 6: Final Linear Polish
+### Phase 6: The 70% Ceiling
 
-- **Strategy:** Returned to a continuous linear framework to preserve forward-looking extrapolation. Retained engineered physical features, stabilized data matrices via correlation analysis, and tuned the OLS pipeline.
-- **Final Metrics:** Training R-squared 0.7032 | Testing R-squared 0.6851 | Test MAE 0.3680 GHz
-- **Verdict:** By optimizing the feature space rather than changing the math, the linear model captures nearly 70% of historical variance with a narrow generalization gap. It stands as a physically grounded, stable extrapolation engine ready for future node transitions.
+- **Strategy:** Returned to Ridge Regression to preserve forward-looking extrapolation. Retained engineered physical features, introduced temporal node maturity tracking (`Node_Maturity_Years`), and tuned the OLS pipeline.
+- **Metrics:** Training R-squared 0.7032 | Testing R-squared 0.6851 | Test MAE 0.3680 GHz
+- **Insight:** The linear model settled near 70% variance captured -- a hard structural ceiling. Consumer silicon arcs upward with core counts while server silicon slopes downward due to die size and mesh fabric drag. A single global regression line, forced to average across both domains, could push no further.
+
+### Phase 7: Breaking the Plateau
+
+- **Strategy:** Three simultaneous structural changes. First, the raw `Threads` column was converted into `Threads_per_Core` -- an SMT ratio that eliminated the 0.98 Cores-Threads correlation while preserving the exact thermal penalty that Hyper-Threading imposes on single-core boost clocks. Second, two per-core power metrics were engineered: `TDP_per_Core` and the `Power_Starvation_Index` (Cores^2 / TDP), giving the purely additive linear model the geometric coordinates to recognize that a 125W 8-core chip allocates far more headroom per core than a 350W 56-core server slab. Third, the entire enterprise server segment (Xeon Scalable and Xeon Legacy) was surgically removed from the training set, optimizing the pipeline exclusively for consumer desktop and mobile silicon.
+
+![Consumer silicon arcs upward with core count while Xeon server silicon slopes downward -- the two domains obey opposing physical trends, making a single compromise regression line structurally inadequate.](img/Why-We-Removed-Xeons.png)
+
+- **Metrics:** Test R-squared exceeding 84% | Generalization gap narrowed substantially
+- **Verdict:** This was the definitive breakthrough. Linear regression is a conditional expectation engine -- it always seeks the optimal average. By removing the Xeon domain, the model was freed from forcing a mediocre compromise line between two opposing physical realities. The per-core ratio features gave the straight line the curvature it structurally lacks, and the SMT ratio resolved the multicollinearity that had silently destabilized coefficients since Phase 3. The result is a purely linear, consumer-optimized extrapolation engine with genuine predictive range into future architectures.
 
 ## Feature Set
 
@@ -82,9 +91,10 @@ Predicting a CPU's maximum turbo frequency using linear regression is a challeng
 |---|---|
 | `Lithography(nm)` | Manufacturing process node size |
 | `Cores` | Physical core count |
-| `Threads` | Logical thread count |
 | `TDP(W)` | Thermal Design Power |
 | `Release Date` | Year of launch (extracted from release string) |
+
+Raw `Threads` is collected at input but converted to the ratio `Threads_per_Core` before entering the model, resolving the 0.98 Cores-Threads correlation.
 
 ### Engineered Physical Features
 
@@ -94,6 +104,15 @@ Predicting a CPU's maximum turbo frequency using linear regression is a challeng
 | `Is_Tiled` | Binary flag for MCM / Foveros tiled packaging |
 | `Is_Mesh` | Binary flag for server mesh interconnect topology |
 | `Log_Node_Density` | Log-transformed estimated transistor density (MTr/mm2) |
+| `Node_Maturity_Years` | Years elapsed since the process node was first introduced |
+
+### Derived Per-Core Ratios
+
+| Feature | Description |
+|---|---|
+| `TDP_per_Core` | TDP divided by Cores -- localized thermal headroom per core |
+| `Threads_per_Core` | Threads divided by Cores -- SMT ratio capturing Hyper-Threading overhead |
+| `Power_Starvation_Index` | Cores squared divided by TDP -- penalizes high core counts on thin power envelopes |
 
 ### Interaction Features
 
@@ -101,16 +120,15 @@ Predicting a CPU's maximum turbo frequency using linear regression is a challeng
 |---|---|
 | `Cores_x_Is_Mesh` | Cores multiplied by mesh flag to capture mesh routing overhead |
 | `TDP_x_Is_Tiled` | TDP multiplied by tiled packaging flag |
-| `Density_x_ReleaseYear` | Log node density multiplied by release year (generational scaling) |
 
 ### One-Hot Encoded Groups
 
 | Group | Levels | Dummies |
 |---|---|---|
-| `Vertical Segment` | Atom, Celeron, Core, Core Ultra, Intel, Pentium, Xeon (7 levels) | 6 |
+| `Vertical Segment` | Atom, Celeron, Core, Core Ultra, Intel, Pentium (6 levels; Xeon excluded from training) | 5 |
 | `Power Tier` | Embedded, Extreme Low Power, High Perf, High Perf Mobile, Low Power, Mobile (Legacy), No Graphics, Power Optimized, Standard, Standard / Graphics, Ultra-Low Power, BGA / Soldered (12 levels) | 11 |
 
-**Total: 29 columns** (12 numeric + 17 dummy). All numeric features are standardized via `StandardScaler` before training.
+**Total: 30 columns** (14 numeric + 16 dummy). All numeric features are standardized via `StandardScaler` before training.
 
 ## License
 
