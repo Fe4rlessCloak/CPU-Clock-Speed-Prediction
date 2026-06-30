@@ -8,14 +8,18 @@ The dataset is sourced from [intel-processors](https://github.com/toUpperCase78/
 
 ## Approach
 
-Linear regression is used to model the relationship between processor features and clock speed targets. The model iterates through seven phases, progressively introducing categorical context, physical constraints, and engineered features while preserving the linear framework required for extrapolation to future architectures.
+Linear regression is used to model the relationship between processor features and clock speed targets. The model iterates through nine phases, progressively introducing categorical context, physical constraints, and engineered features while preserving the linear framework required for extrapolation to future architectures.
 
 ## Structure
 
 ```
 .
 ├── data/           # CSV datasets by processor family
-├── model/          # Model training and evaluation
+├── img/            # Charts and diagrams
+├── model/          # Training, prediction, and benchmarking
+│   ├── predict.py  # Interactive future-CPU predictor
+│   ├─── test.py    # Batch benchmark runner with 10-fold CV
+│   └── test.ipynb  # Jupyter Notebook for testing
 └── README.md
 ```
 
@@ -29,7 +33,11 @@ conda activate data
 ## Usage
 
 ```bash
-python model/main.py
+# Interactive future-CPU predictor
+python model/predict.py
+
+# Batch benchmark against real CPUs
+python model/test.py
 ```
 
 ## Model Evolution
@@ -78,9 +86,73 @@ Predicting a CPU's maximum turbo frequency using linear regression is a challeng
 
 ![Consumer silicon arcs upward with core count while Xeon server silicon slopes downward -- the two domains obey opposing physical trends, making a single compromise regression line structurally inadequate.](img/Why-We-Removed-Xeons.png)
 
-- **Metrics:** Test R-squared exceeding 84% | Generalization gap narrowed substantially
+- **Metrics:** Test R-squared 0.8448 | Test MAE 0.266 GHz
 - **Verdict:** This was the definitive breakthrough. Linear regression is a conditional expectation engine -- it always seeks the optimal average. By removing the Xeon domain, the model was freed from forcing a mediocre compromise line between two opposing physical realities. The per-core ratio features gave the straight line the curvature it structurally lacks, and the SMT ratio resolved the multicollinearity that had silently destabilized coefficients since Phase 3. The result is a purely linear, consumer-optimized extrapolation engine with genuine predictive range into future architectures.
 
+### Phase 8: Asymmetric Hybrid Architecture Overhaul
+
+- **Strategy:** Completely rebuilt the feature engineering layer to account for modern asymmetric hybrid processors (P-cores + E-cores). Injected a `P-Cores` column parsed automatically from product naming conventions across all datasets. Introduced `P_Core_Ratio` (P-Cores divided by total Cores) to replace raw core counts with a structural composition metric, capturing whether a die is monolithic or hybrid. Engineered `TDP_per_PCore` to isolate the thermal budget available to active single-core execution blocks, preventing background E-core clusters from diluting power-delivery signals. Added a vectorized conditional fallback via `np.where` to handle zero P-core budgets safely on ultra-low-power parts.
+- **Metrics:** Test R-squared **0.8465** | Test MAE **0.2675 GHz**
+- **Benchmark validation:** A blind test suite of 26 processors spanning distinct eras, segments, and architectural limits yielded MAE of 0.303 GHz and mean absolute percentage error of 7.7%. The model predicts flagship hybrid configurations within sub-2% error (Core Ultra 9 285K: 0.3%, i9-14900KS: 1.8%, i5-13600K: 0.8%, i7-12700K: 1.4%).
+- **Benchmarks:** 
+A blind validation suite of 26 processors from distinct eras, segments, and architectural limits was evaluated against the Phase 8 Ridge model (consumer-only, 970 training samples).
+
+```
+  CPU                                            Actual    Pred     Err   %Err
+--------------------------------------------------------------------------------
+  Intel Core i7-920                               2.93G   3.58G +0.649  22.2%
+  Intel Core i7-2700K                             3.90G   3.66G -0.237   6.1%
+  Intel Core i7-3770K                             3.90G   3.56G -0.336   8.6%
+  Intel Core i7-4790K                             4.40G   3.96G -0.440  10.0%
+  Intel Core i7-5775C                             3.70G   3.86G +0.156   4.2%
+  Intel Core i7-6700K                             4.20G   3.98G -0.218   5.2%
+  Intel Core i7-7700K                             4.50G   4.32G -0.176   3.9%
+  Intel Core i5-8400                              4.00G   4.10G +0.104   2.6%
+  Intel Core i9-9900K                             5.00G   4.50G -0.500  10.0%
+  Intel Core i9-10900K                            5.30G   4.96G -0.342   6.5%
+  Intel Core i7-11700K                            5.00G   5.02G +0.017   0.3%
+  Intel Core i3-12100F                            4.30G   4.64G +0.345   8.0%
+  Intel Core i5-12400                             4.40G   4.68G +0.284   6.5%
+  Intel Core i7-12700K                            5.00G   4.93G -0.069   1.4%
+  Intel Core i5-13600K                            5.10G   5.14G +0.042   0.8%
+  Intel Core i9-14900KS                           6.20G   6.09G -0.114   1.8%
+  Intel Core Ultra 7 155U                         4.80G   4.46G -0.335   7.0%
+  Intel Core Ultra 5 125H                         4.50G   4.82G +0.315   7.0%
+  Intel Core Ultra 9 285K                         5.70G   5.72G +0.018   0.3%
+  Intel Core Ultra 7 258V                         4.80G   4.38G -0.422   8.8%
+  Intel Pentium Gold 8505                         4.40G   3.53G -0.872  19.8%
+  Intel Processor N95                             3.40G   3.12G -0.276   8.1%
+  Intel Core i3-N300                              3.80G   4.46G +0.658  17.3%
+  Intel Pentium Silver N6005                      3.30G   3.55G +0.249   7.5%
+  Intel Core m3-7Y30                              2.60G   3.27G +0.669  25.7%
+  Intel Core i7-6950X                             4.00G   3.96G -0.042   1.0%
+--------------------------------------------------------------------------------
+  MAE across 26 CPUs with known turbo: 0.303 GHz  |  Max abs error: 0.872 GHz
+  Mean |%error|: 7.7%
+```
+- **Verdict:** Domain-specific feature engineering decisively outperforms blind hyperparameter tuning. By altering how the model parses CPU core composition, a basic linear Ridge regression was elevated into an explainable, deterministic physics calculator that captures nearly 85% of clock scaling variance across two decades of consumer silicon.
+
+### Phase 9: Polynomial Expansion & Rigorous Cross-Validation
+
+- **Strategy:** Earlier phases relied on a single 80/20 train-test split and manual alpha tuning -- a workflow that, while productive for rapid iteration, carried a hidden risk: repeatedly tweaking features and hyperparameters against the same held-out fold can silently overfit the pipeline to specific future targets (e.g. Nova Lake), making it impossible to objectively compare two competing model architectures. To eliminate this, the entire evaluation framework was rebuilt around two methodological safeguards. First, **10-Fold Cross-Validation** replaced the single split, producing a true out-of-sample R-squared and MAE with honest standard deviations across all 970 consumer CPUs. Second, hyperparameter selection was handed off to **nested RidgeCV** -- the regularization strength alpha is now chosen purely by the data through an inner cross-validation loop, removing the human from the tuning knob entirely. With the evaluation framework locked down, the linear feature set was expanded via **degree-2 polynomial features** (PolynomialFeatures(degree=2, include_bias=False)), exploding the 32-column feature space into 594 interaction and squared terms while keeping the underlying estimator a penalized Ridge regression.
+- **Metrics (10-Fold CV, 970 samples):**
+  - Polynomial RidgeCV (alpha selected automatically, median ~628): **True Avg R-squared = 0.8764 +/- 0.0269** | **True Avg MAE = 0.2276 +/- 0.0226 GHz**
+- **Verdict:** This phase was less about chasing a higher number and more about earning the right to trust it. The polynomial expansion delivered a genuine 3-point R-squared gain over the linear model (0.876 vs 0.846) while tightening the error bars -- the +/- 0.027 standard deviation on R-squared confirms the model generalizes stably across all 10 folds. More importantly, the switch to nested cross-validation with RidgeCV means that when someone asks "did you tune alpha to make the numbers look good?", the answer is no: the data chose alpha approximately 628 on its own, with zero human steering. The lesson: rigorous evaluation is extremely important to evaluate any model.
+- **Nova Lake Prediction**:  
+  - Lithography(nm)       : 2
+  - Cores                 : 52
+  - Threads               : 52
+  - TDP(W)                : 170 (PL1)
+  - Release Year          : 2026
+  - L2 per P-core (KB)    : 3072 (4MB is to be shared across 2 P-Cores; 3MB is an estimate for the effective L2 Cache per P-Core)
+  - Is Tiled? (0/1)       : 1
+  - Is Mesh?  (0/1)       : 0
+  - Node Density (MTr/mm2) : 230 (Estimate for N2P)
+  - Node Maturity (years) : 0
+  - P-Cores               : 16
+  - Family: Core Ultra
+  - Power Tier: High Perf
+  > Predicted Max. Turbo Freq.:  5.641 GHz  (~5641 MHz)
 ## Feature Set
 
 **Target:** `Max. Turbo Freq.(GHz)`
@@ -92,9 +164,9 @@ Predicting a CPU's maximum turbo frequency using linear regression is a challeng
 | `Lithography(nm)` | Manufacturing process node size |
 | `Cores` | Physical core count |
 | `TDP(W)` | Thermal Design Power |
-| `Release Date` | Year of launch (extracted from release string) |
+| `Release Year` | Year of launch (extracted from release string) |
 
-Raw `Threads` is collected at input but converted to the ratio `Threads_per_Core` before entering the model, resolving the 0.98 Cores-Threads correlation.
+Raw `Threads` is collected at input but converted to the ratio `Threads_per_Core` before entering the model, resolving the Cores-Threads correlation.
 
 ### Engineered Physical Features
 
@@ -113,6 +185,8 @@ Raw `Threads` is collected at input but converted to the ratio `Threads_per_Core
 | `TDP_per_Core` | TDP divided by Cores -- localized thermal headroom per core |
 | `Threads_per_Core` | Threads divided by Cores -- SMT ratio capturing Hyper-Threading overhead |
 | `Power_Starvation_Index` | Cores squared divided by TDP -- penalizes high core counts on thin power envelopes |
+| `P_Core_Ratio` | P-Cores divided by total Cores -- structural composition ratio for hybrid dies |
+| `TDP_per_PCore` | TDP divided by P-Cores -- thermal budget available to active single-core execution blocks |
 
 ### Interaction Features
 
@@ -128,7 +202,8 @@ Raw `Threads` is collected at input but converted to the ratio `Threads_per_Core
 | `Vertical Segment` | Atom, Celeron, Core, Core Ultra, Intel, Pentium (6 levels; Xeon excluded from training) | 5 |
 | `Power Tier` | Embedded, Extreme Low Power, High Perf, High Perf Mobile, Low Power, Mobile (Legacy), No Graphics, Power Optimized, Standard, Standard / Graphics, Ultra-Low Power, BGA / Soldered (12 levels) | 11 |
 
-**Total: 30 columns** (14 numeric + 16 dummy). All numeric features are standardized via `StandardScaler` before training.
+**Total: 33 columns** (16 numeric + 17 dummy). All numeric features are standardized via `StandardScaler` before training.
+
 
 ## License
 
