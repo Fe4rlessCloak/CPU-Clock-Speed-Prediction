@@ -1,2 +1,6 @@
 .DS_Store
 .reasonix/
+ignore/
+model/__pycache__
+data/backup
+data/full-data-for-reference-

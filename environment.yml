@@ -1,0 +1,13 @@
+name: cpuclock-ml
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - pandas
+  - ipykernel
+  - scikit-learn
+  - matplotlib
+  - uvicorn
+  - fastapi
+  - seaborn
+prefix: /opt/miniconda3/envs/cpuclock-ml

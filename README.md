@@ -152,7 +152,7 @@ A blind validation suite of 26 processors from distinct eras, segments, and arch
   - P-Cores               : 16
   - Family: Core Ultra
   - Power Tier: High Perf
-  > Predicted Max. Turbo Freq.:  5.641 GHz  (~5641 MHz)
+  > Predicted Max. Turbo Freq.:  7.1 GHz
 ## Feature Set
 
 **Target:** `Max. Turbo Freq.(GHz)`
